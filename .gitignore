@@ -1,0 +1,14 @@
+# Private statement originals and processed source files
+/Uploads/*
+!/Uploads/.gitkeep
+/Archived/*
+!/Archived/.gitkeep
+
+# Personal financial records, generated reports and local settings
+/.data/
+/reports/
+/.env
+/.budget-tracker*
+__pycache__/
+*.py[cod]
+.DS_Store
