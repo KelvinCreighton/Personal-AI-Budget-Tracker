@@ -127,11 +127,21 @@ def parse_json_response(raw: str) -> dict[str, Any]:
     try:
         result = json.loads(text)
     except json.JSONDecodeError:
-        start, end = text.find("{"), text.rfind("}")
-        if start < 0 or end <= start:
-            raise ValueError("The AI CLI did not return a JSON object. Try processing the file again.")
-        result = json.loads(text[start:end + 1])
-    if not isinstance(result, dict) or not isinstance(result.get("transactions", []), list):
+        result = None
+        decoder = json.JSONDecoder()
+        for start, char in enumerate(text):
+            if char != "{":
+                continue
+            try:
+                candidate, _ = decoder.raw_decode(text[start:])
+            except json.JSONDecodeError:
+                continue
+            if isinstance(candidate, dict) and isinstance(candidate.get("transactions"), list):
+                result = candidate
+                break
+        if result is None:
+            raise ValueError("The AI CLI did not return a complete JSON object with a transactions array.")
+    if not isinstance(result, dict) or "transactions" not in result or not isinstance(result["transactions"], list):
         raise ValueError("The AI response must be an object with a transactions array.")
     return result
 
