@@ -2,8 +2,8 @@
 
 A local-first spending monitor that uses the installed Antigravity CLI (`agy`) to read account
 statements, records transactions in a private SQLite database, and writes monthly
-and annual Markdown reports with category trends, cash-flow savings, recurring
-charges, reimbursement follow-up, and concrete savings opportunities.
+and annual Markdown reports with category trends, cash-flow savings, potential
+recurring bills, transfer review, reimbursement follow-up, and savings actions.
 
 ## Quick start
 
@@ -67,6 +67,10 @@ calls the AI CLI.
   results and `edit` to correct categories, transaction kinds, descriptions, or
   reimbursement flags. Corrections are kept locally and reports refresh on the
   next run.
+- Positive deposits explicitly identified as your own account transfers are not
+  counted as income. Reports list incoming transfers that still need source
+  review so you can distinguish your own money movements from pay, gifts, and
+  volunteer reimbursements.
 
 ## Privacy and data handling
 

@@ -194,6 +194,10 @@ Extraction rules:
   Money leaving the account is negative; money entering is positive. Never infer a missing amount.
 - On credit-card statements purchases/fees are negative. A card payment is a transfer, not spending or income.
   Payments between the user's own accounts are transfers on both sides and must not inflate income/spending.
+- Do not label an incoming e-transfer, cheque deposit, or deposit from an unidentified sender as the user's own
+  transfer without evidence. Treat it as external income and note the unclear source; use refund only when the
+  statement links it to a prior purchase. An explicitly identified transfer from another account owned by the
+  user remains kind=transfer.
 - A merchant refund or reimbursement is positive kind=refund, not earned income. Set reimbursement_for to the
   original merchant/expense when the statement text makes the relationship clear.
 - Set reimbursable=true only when the merchant, memo, or statement context gives a real reason to believe an
@@ -379,6 +383,8 @@ def recurring_charges(rows: list[sqlite3.Row]) -> list[tuple[str, float, int]]:
     for row in rows:
         if row["amount"] >= 0 or row["kind"] == "transfer" or row["reimbursable"]:
             continue
+        if row["category"] not in {"Housing", "Utilities", "Vehicle", "Health", "Entertainment", "Education", "Fees and interest"}:
+            continue
         key = merchant_key(row["description"])
         if len(key) < 3:
             continue
@@ -392,6 +398,11 @@ def recurring_charges(rows: list[sqlite3.Row]) -> list[tuple[str, float, int]]:
             if mean > 0 and (max(monthly_totals) - min(monthly_totals)) / mean <= 0.35:
                 recurring.append((display[key], mean, len(months)))
     return sorted(recurring, key=lambda item: item[1], reverse=True)
+
+
+def external_inflow_review(rows: list[sqlite3.Row]) -> list[sqlite3.Row]:
+    """Positive transfers are excluded from income until the user confirms their source."""
+    return [row for row in rows if row["amount"] > 0 and row["kind"] == "transfer"]
 
 
 def report_rows_for_year(conn: sqlite3.Connection, year: str, currency: str | None = None) -> list[sqlite3.Row]:
@@ -473,11 +484,17 @@ def monthly_report(conn: sqlite3.Connection, month: str, all_months: list[str], 
 
     all_rows = report_rows_for_year(conn, month[:4], currency)
     recurring = recurring_charges(all_rows)
-    out.extend(["", "## Recurring charges to review", ""])
+    inflows = external_inflow_review(rows)
+    if inflows:
+        out.extend(["", "## Incoming transfers to verify", "",
+                    f"${sum(row['amount'] for row in inflows):,.2f} across {len(inflows)} incoming item(s) is excluded from earned income because it is classified as transfers. If any are pay, gifts, reimbursements, or other external money, correct them with `python3 budget.py edit ID --kind income` (or `refund` for a reimbursement)."])
+        out.extend(f"- ID {row['id']}: {row['description']} · ${row['amount']:,.2f}" for row in inflows[:10])
+
+    out.extend(["", "## Potential recurring bills", ""])
     if recurring:
         out.extend(f"- **{merchant}:** about ${average:,.2f}/month across {count} observed months. Confirm it is still useful and check for a lower-cost plan." for merchant, average, count in recurring[:8])
     else:
-        out.append("No stable recurring charge pattern found across at least three observed months.")
+        out.append("No stable bill-like pattern found across at least three observed months. Everyday dining, grocery, and shopping purchases are excluded from this list.")
 
     out.extend(["", "## Optimization actions", ""])
     discretionary = {"Dining", "Shopping", "Entertainment", "Travel", "Personal care"}
@@ -594,13 +611,19 @@ def annual_report(conn: sqlite3.Connection, year: str, all_months: list[str], cu
     else:
         out.append("- No discretionary categories were confidently identified; review any `Other` items before making a budget.")
 
+    inflows = external_inflow_review(rows)
+    if inflows:
+        out.extend(["", "## Incoming transfers to verify", "",
+                    f"${sum(row['amount'] for row in inflows):,.2f} across {len(inflows)} incoming item(s) is excluded from earned income because it is classified as transfers. Review these sources; reclassify external receipts as income or refunds so savings and reimbursement totals are accurate."])
+        out.extend(f"- ID {row['id']}: {row['description']} · ${row['amount']:,.2f}" for row in inflows[:20])
+
     recurring = recurring_charges(rows)
-    out.extend(["", "## Recurring charges", ""])
+    out.extend(["", "## Potential recurring bills", ""])
     if recurring:
         for merchant, average, count in recurring[:15]:
             out.append(f"- **{merchant}:** about ${average:,.2f}/month across {count} observed months (roughly ${average*12:,.2f}/year at this pace). Check whether the service is used and whether a cheaper plan is available.")
     else:
-        out.append("No stable recurring charge pattern found across at least three observed months.")
+        out.append("No stable bill-like pattern found across at least three observed months. Everyday dining, grocery, and shopping purchases are excluded from this list.")
 
     if reimbursable:
         matches = reimbursement_matches(conn, rows)
@@ -642,7 +665,8 @@ def ingest(args: argparse.Namespace) -> int:
     conn = connect()
     candidates = sorted(p for p in UPLOADS.iterdir() if p.is_file() and p.name != ".gitkeep" and p.suffix.lower() in SUPPORTED)
     if not candidates:
-        print("No supported statements found in Uploads/.")
+        write_reports(conn)
+        print("No supported statements found in Uploads/. Refreshed reports from existing records.")
         return 0
     failures = 0
     for path in candidates:
