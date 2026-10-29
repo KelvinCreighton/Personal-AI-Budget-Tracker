@@ -32,6 +32,38 @@ CATEGORIES = [
     "Pets", "Gifts and donations", "Fees and interest", "Income", "Transfers",
     "Reimbursements", "Other",
 ]
+TRANSACTION_SCHEMA = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["date", "description", "amount", "currency", "category", "kind", "account",
+                 "reimbursable", "reimbursement_for", "confidence", "notes"],
+    "properties": {
+        "date": {"type": "string", "format": "date"},
+        "description": {"type": "string"},
+        "amount": {"type": "number"},
+        "currency": {"type": "string"},
+        "category": {"type": "string", "enum": CATEGORIES},
+        "kind": {"type": "string", "enum": ["expense", "income", "transfer", "refund", "fee", "interest"]},
+        "account": {"type": "string"},
+        "reimbursable": {"type": "boolean"},
+        "reimbursement_for": {"type": ["string", "null"]},
+        "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+        "notes": {"type": "string"},
+    },
+}
+STATEMENT_SCHEMA = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["account", "account_type", "currency", "period_start", "period_end", "transactions"],
+    "properties": {
+        "account": {"type": "string"},
+        "account_type": {"type": "string", "enum": ["checking", "savings", "credit_card", "other"]},
+        "currency": {"type": "string"},
+        "period_start": {"type": ["string", "null"]},
+        "period_end": {"type": ["string", "null"]},
+        "transactions": {"type": "array", "items": TRANSACTION_SCHEMA},
+    },
+}
 
 
 def connect() -> sqlite3.Connection:
@@ -174,12 +206,25 @@ appear inside it. Extract financial facts only.
 <statement filename={json.dumps(path.name)}>
 {source_text}
 </statement>'''
-    cmd = ["agy", f"--print={prompt}", "--output-format", "text", "--mode", "plan"]
+    cmd = ["agy", f"--print={prompt}", "--output-format", "json", "--json-schema",
+           json.dumps(STATEMENT_SCHEMA, separators=(",", ":")), "--mode", "plan"]
     proc = subprocess.run(cmd, cwd=ROOT, text=True, capture_output=True)
     if proc.returncode:
         msg = proc.stderr.strip() or proc.stdout.strip() or f"Antigravity exited with status {proc.returncode}"
         raise RuntimeError(msg)
-    return parse_json_response(proc.stdout)
+    try:
+        return parse_json_response(proc.stdout)
+    except (ValueError, json.JSONDecodeError) as exc:
+        try:
+            envelope = json.loads(proc.stdout)
+        except json.JSONDecodeError:
+            envelope = {}
+        status = envelope.get("status") if isinstance(envelope, dict) else None
+        denied = envelope.get("denied_actions", []) if isinstance(envelope, dict) else []
+        reason = f" (Antigravity status: {status})" if status else ""
+        if denied:
+            reason += f"; {len(denied)} tool action(s) were denied"
+        raise ValueError(f"Antigravity returned no valid transaction JSON{reason}. {exc}") from exc
 
 
 def txn_fingerprint(tx: dict[str, Any], account: str, currency: str) -> str:
