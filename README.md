@@ -1,30 +1,31 @@
 # Personal AI Budget Tracker
 
-A local-first spending monitor that uses the installed Gemini CLI to read account
+A local-first spending monitor that uses the installed Antigravity CLI (`agy`) to read account
 statements, records transactions in a private SQLite database, and writes monthly
 Markdown reports with category trends, cash-flow savings, coverage status, and
 possible reimbursement matches.
 
 ## Quick start
 
-1. Install and sign in to [Gemini CLI](https://github.com/google-gemini/gemini-cli).
-   Check that `gemini --version` works in the same terminal where you run this app.
-2. Put statement files in `Uploads/`. Supported formats: PDF, CSV, TXT, Markdown,
+1. Install the Python dependency with `python3 -m pip install -r requirements.txt`.
+2. Install and sign in to Antigravity CLI. Check that `agy --version` works in
+   the same terminal where you run this app.
+3. Put statement files in `Uploads/`. Supported formats: PDF, CSV, TXT, Markdown,
    DOCX, HTML, and JSON.
-3. Run:
+4. Run:
 
    ```sh
    python3 budget.py run
    ```
 
-4. Read the generated reports in `reports/`. Processed originals move to
+5. Read the generated reports in `reports/`. Processed originals move to
    `Archived/`. Both directories are private and ignored by Git.
 
 Other commands:
 
 ```sh
 python3 budget.py status  # pending files and local record counts
-python3 budget.py report  # regenerate reports without calling Gemini
+python3 budget.py report  # regenerate reports without calling Antigravity
 python3 budget.py run --keep  # process files but leave originals in Uploads/
 python3 budget.py transactions --month 2026-10  # inspect records and their IDs
 python3 budget.py edit 42 --category Groceries  # correct a classification
@@ -34,7 +35,7 @@ python3 budget.py edit 42 --reimbursable  # exclude a volunteer purchase from pe
 Run `python3 budget.py run` each month after placing new statements in `Uploads/`.
 The database remembers previously processed statements and skips duplicate
 transactions, including overlapping statement periods. Re-running reports never
-calls Gemini.
+calls the AI CLI.
 
 ## What the reports mean
 
@@ -70,24 +71,24 @@ files below them, along with `.data/` (the SQLite database) and `reports/`. Keep
 these paths ignored if you customize `.gitignore`; do not force-add statement or
 report files. The app does not upload anything to GitHub.
 
-When processing, the statement is provided to the Gemini CLI, which sends the
-prompt and file contents to Google's Gemini service under the account and plan
-configured in your CLI. Check Google's current privacy and retention terms before
-using statements containing sensitive information. The app itself stores the
+Text is extracted locally from each statement and provided to Antigravity CLI, which sends the
+prompt and file contents to the model and service configured in that CLI. Check
+the configured provider's privacy and retention terms before using statements
+containing sensitive information. The app itself stores the
 resulting transaction details and archived originals locally in this project.
 Protect the machine and backups that contain this folder.
 
 ## Accuracy and review
 
-Gemini can misread dates, signs, merchants, categories, transfers, and
+The AI can misread dates, signs, merchants, categories, transfers, and
 reimbursements. The database has transaction fingerprints to prevent overlapping
 statements from double-counting the same date, description, amount, currency, and
 account. Different accounts with the same label may need review. Check unusual
-items and reimbursement matches against the original statement. If Gemini fails
+items and reimbursement matches against the original statement. If AI processing fails
 to process a file, it remains in `Uploads/`; supported files that process
 successfully are moved to `Archived/`.
 
-The starter version writes private Markdown reports and keeps a local SQLite
+The app writes private Markdown reports and keeps a local SQLite
 history. It does not connect to banks, move money, or provide tax/accounting
 advice. The reports are decision support: use verified transactions and your own
 judgment before acting on a suggestion.

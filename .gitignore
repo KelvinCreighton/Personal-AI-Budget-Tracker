@@ -6,7 +6,8 @@
 
 # Personal financial records, generated reports and local settings
 /.data/
-/reports/
+/reports/*
+!/reports/.gitkeep
 /.env
 /.budget-tracker*
 __pycache__/
