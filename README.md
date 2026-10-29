@@ -2,8 +2,8 @@
 
 A local-first spending monitor that uses the installed Antigravity CLI (`agy`) to read account
 statements, records transactions in a private SQLite database, and writes monthly
-Markdown reports with category trends, cash-flow savings, coverage status, and
-possible reimbursement matches.
+and annual Markdown reports with category trends, cash-flow savings, recurring
+charges, reimbursement follow-up, and concrete savings opportunities.
 
 ## Quick start
 
@@ -53,16 +53,20 @@ calls the AI CLI.
   vehicle, health, personal care, shopping, entertainment, travel, education,
   pets, gifts and donations, fees and interest, income, transfers, reimbursements,
   and other.
-- A month is marked complete only when the calendar month has ended and known
-  statement periods cover every day of that month. Otherwise it is marked **so
-  far** with the reason. A statement period is not proof that every transaction
-  was captured; review reports against your source statements.
-- Category averages use prior complete months only. Explicitly marked
-  reimbursable expenses are excluded from this personal-spending baseline.
-  Trends and suggestions become more useful as complete months accumulate.
-  Use `transactions` to inspect AI results and `edit` to correct categories,
-  transaction kinds, descriptions, or reimbursement flags. Corrections are kept
-  in the local database and reports refresh immediately.
+- Reports are snapshots of all currently imported transactions. There is no
+  unfinished-month timeline or “so far” label. Add later statements and run the
+  tracker again; it deduplicates overlapping transactions and rebuilds every
+  monthly and annual report from the updated local history.
+- Monthly category comparisons use the average of other months in the imported
+  data. Annual category averages use months with imported transactions.
+  Explicitly marked reimbursable expenses are excluded from personal-spending
+  comparisons, while still appearing in gross cash outflow.
+- Reports highlight stable recurring charges, unusual discretionary spending,
+  and realistic experiments such as a 10% category reduction. Suggestions are
+  based on recorded patterns, not guarantees. Use `transactions` to inspect AI
+  results and `edit` to correct categories, transaction kinds, descriptions, or
+  reimbursement flags. Corrections are kept locally and reports refresh on the
+  next run.
 
 ## Privacy and data handling
 
@@ -88,7 +92,7 @@ items and reimbursement matches against the original statement. If AI processing
 to process a file, it remains in `Uploads/`; supported files that process
 successfully are moved to `Archived/`.
 
-The app writes private Markdown reports and keeps a local SQLite
+The app writes private monthly and annual Markdown reports and keeps a local SQLite
 history. It does not connect to banks, move money, or provide tax/accounting
 advice. The reports are decision support: use verified transactions and your own
 judgment before acting on a suggestion.
